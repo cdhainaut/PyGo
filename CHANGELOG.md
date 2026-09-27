@@ -18,6 +18,7 @@ First release of `py-go`, a rewrite of the PyGo prototype into an installable pa
 - CLI: `py-go convert`, `py-go info`, `py-go report`, `py-go fetch`
 - Test suite (65 tests) with real game fixtures and golden SGF files, validated
   against the native OGS SGF export and an independent board replay (sgfmill)
+- MIT license
 
 ### Fixed (vs the prototype)
 

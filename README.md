@@ -1,6 +1,6 @@
 # py-go
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
 Convert and inspect [Online-Go](https://online-go.com) games as clean SGF — from the command line or from Python.
@@ -29,7 +29,7 @@ pass, points and resignation games.
 ## Install
 
 ```bash
-git clone https://github.com/carlitador/PyGo.git
+git clone https://github.com/cdhainaut/PyGo.git
 cd PyGo && pip install -e .
 ```
 
@@ -185,4 +185,4 @@ metadata, verified). Importing an external KataGo/katrain analysis is on the roa
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
