@@ -57,6 +57,7 @@ Indicators (0)
   none
 
 $ py-go report 37044914 --json
+$ py-go convert 37044914 --clipboard
 $ py-go convert https://online-go.com/game/37044914 -o game.sgf
 $ py-go convert 37044914 --annotate
 $ py-go convert 37044914
@@ -65,9 +66,10 @@ $ py-go fetch triple_atari -o games/ --limit 50
 ```
 
 `source` is an OGS game URL, a bare game id, or a path to a saved game JSON. `convert` writes to
-stdout unless `-o` is given, and `--annotate` adds `C[]` comments on flagged moves. `report --json`
-prints the same content as JSON. `fetch` takes a player id, a username or a user URL, and skips
-games already in the target directory.
+stdout unless `-o` is given; `--clipboard` copies the SGF instead, ready to paste into a viewer such
+as KaTrain (it uses `wl-copy`, `xclip`, `xsel` or `pbcopy`, whichever is installed). `--annotate`
+adds `C[]` comments on flagged moves. `report --json` prints the same content as JSON. `fetch` takes
+a player id, a username or a user URL, and skips games already in the target directory.
 
 ## Python API
 

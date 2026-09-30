@@ -1,6 +1,7 @@
 """CLI: conversion to file or stdout, game summary, error reporting."""
 
 import json
+import types
 
 from pygo.cli import main
 from pygo.sgf import to_sgf
@@ -41,6 +42,57 @@ def test_info_handicap(capsys, fixtures_dir):
 def test_unknown_source_reports_error(capsys):
     assert main(["convert", "not-a-game"]) == 1
     assert "error:" in capsys.readouterr().err
+
+
+def _fake_run(results, calls):
+    """Stand-in for subprocess.run: canned return codes, records (command, input)."""
+
+    def run(command, input, stdout, stderr):
+        calls.append((command, input))
+        returncode, message = results.get(command[0], (0, b""))
+        stderr.write(message)
+        return types.SimpleNamespace(returncode=returncode)
+
+    return run
+
+
+def test_convert_clipboard_on_x11(monkeypatch, fixtures_dir, golden_34508515):
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr("pygo.cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    calls = []
+    monkeypatch.setattr("pygo.cli.subprocess.run", _fake_run({}, calls))
+    assert main(["convert", str(fixtures_dir / "game_34508515.json"), "--clipboard"]) == 0
+    assert len(calls) == 1
+    command, payload = calls[0]
+    assert command == ("xclip", "-selection", "clipboard")
+    assert payload.decode() == golden_34508515
+
+
+def test_convert_clipboard_on_wayland(monkeypatch, fixtures_dir):
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr("pygo.cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    calls = []
+    monkeypatch.setattr("pygo.cli.subprocess.run", _fake_run({}, calls))
+    assert main(["convert", str(fixtures_dir / "game_34508515.json"), "--clipboard"]) == 0
+    assert calls[0][0] == ("wl-copy",)
+
+
+def test_convert_clipboard_falls_back_on_failure(monkeypatch, fixtures_dir):
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr("pygo.cli.shutil.which", lambda name: f"/usr/bin/{name}")
+    calls = []
+    monkeypatch.setattr(
+        "pygo.cli.subprocess.run", _fake_run({"xclip": (1, b"Error: Can't open display")}, calls)
+    )
+    assert main(["convert", str(fixtures_dir / "game_34508515.json"), "--clipboard"]) == 0
+    assert [command[0] for command, _ in calls] == ["xclip", "xsel"]
+
+
+def test_convert_clipboard_without_utility(capsys, monkeypatch, fixtures_dir):
+    monkeypatch.setattr("pygo.cli.shutil.which", lambda name: None)
+    source = str(fixtures_dir / "game_34508515.json")
+    assert main(["convert", source, "--clipboard"]) == 1
+    assert "clipboard" in capsys.readouterr().err
 
 
 def test_convert_annotate(tmp_path, flagged_payload):

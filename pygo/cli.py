@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Sequence
@@ -25,7 +29,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     convert = subparsers.add_parser("convert", help="export a game as SGF")
     convert.add_argument("source", help="OGS game URL, game id, or path to a saved game JSON")
-    convert.add_argument("-o", "--output", type=Path, help="output SGF file (default: stdout)")
+    output = convert.add_mutually_exclusive_group()
+    output.add_argument("-o", "--output", type=Path, help="output SGF file (default: stdout)")
+    output.add_argument(
+        "--clipboard",
+        action="store_true",
+        help="copy the SGF to the clipboard (paste into a viewer)",
+    )
     convert.add_argument(
         "--annotate", action="store_true", help="add C[] comments on flagged moves"
     )
@@ -146,6 +156,48 @@ def fetch_games(source: str, output_dir: Path, limit: int | None) -> tuple[int, 
     return new, cached
 
 
+_CLIPBOARD_COMMANDS = {
+    "linux": (
+        ("xclip", "-selection", "clipboard"),
+        ("xsel", "--clipboard", "--input"),
+        ("wl-copy",),
+    ),
+    "darwin": (("pbcopy",),),
+    "win32": (("clip",),),
+}
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Copy text to the system clipboard, trying the platform utilities in turn."""
+    commands = _CLIPBOARD_COMMANDS.get(sys.platform, _CLIPBOARD_COMMANDS["linux"])
+    if sys.platform == "linux" and os.environ.get("WAYLAND_DISPLAY"):
+        commands = tuple(command for command in commands if command[0] == "wl-copy") + tuple(
+            command for command in commands if command[0] != "wl-copy"
+        )
+    failures = []
+    for command in commands:
+        if not shutil.which(command[0]):
+            continue
+        # The clipboard utility forks a daemon that keeps serving the selection and
+        # inherits open pipes, so stderr goes to a file: reading pipes would block
+        # until that daemon exits.
+        with tempfile.TemporaryFile() as errors:
+            try:
+                completed = subprocess.run(
+                    command, input=text.encode(), stdout=subprocess.DEVNULL, stderr=errors
+                )
+            except OSError as exc:
+                failures.append(f"{command[0]}: {exc}")
+                continue
+            if completed.returncode == 0:
+                return
+            errors.seek(0)
+            lines = errors.read().decode(errors="replace").strip().splitlines()
+        failures.append(f"{command[0]}: {lines[0] if lines else f'exit {completed.returncode}'}")
+    detail = "; ".join(failures) or "no clipboard utility found (install xclip, xsel or wl-copy)"
+    raise OSError(f"cannot copy to the clipboard: {detail}")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
@@ -156,7 +208,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         game = load_game(args.source)
         if args.command == "convert":
             sgf = to_sgf(game, annotate=args.annotate)
-            if args.output:
+            if args.clipboard:
+                copy_to_clipboard(sgf + "\n")
+            elif args.output:
                 args.output.write_text(sgf + "\n", encoding="utf-8")
             else:
                 print(sgf)

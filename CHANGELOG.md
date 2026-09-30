@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `py-go convert --clipboard` copies the SGF to the clipboard (for pasting into a viewer)
+
 ## [0.1.0] - 2026-09-27
 
 First release of `py-go`, a rewrite of the PyGo prototype into an installable package.
